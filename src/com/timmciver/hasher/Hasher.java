@@ -6,17 +6,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Hasher {
-    
-    private static final int NUM_CONSUMER_THREADS = 10;
-    private static final long SLEEP_TIME_MS = 100;
     
     public static void main(String[] args) {
         File root = null;
@@ -31,117 +28,66 @@ public class Hasher {
             System.exit(1);
         }
         
-        // create the queues
-        BlockingQueue<File> fileQueue = new ArrayBlockingQueue<File>(10);
+        // populate a list of files to hash
+        List<File> files = crawl(root);
+        System.out.println("Retrieved " + files.size() + " files for hashing.");
+        
+        // create the hash queue
         BlockingQueue<Long> hashQueue = new LinkedBlockingDeque<Long>();
         
-        // create and start one file producer
-        FileProducer fileCrawler = new FileProducer(root, fileQueue);
-        new Thread(fileCrawler).start();
-        
-        // create and start the hashers
-        Collection<Thread> hashers = new ArrayList<Thread>(NUM_CONSUMER_THREADS);
-        for (int i = 0; i < NUM_CONSUMER_THREADS; ++i) {
-            Thread t = new Thread(new FileHasher(fileQueue, hashQueue));
-            hashers.add(t);
+        // create and start a FileProducer thread for each file
+        for (File file : files) {
+            Thread t = new Thread(new FileHasher(file, hashQueue));
             t.start();
-        }
-        
-        // wait for the fileCrawler to finish
-        while (!fileCrawler.isDone()) {
             try {
-                Thread.sleep(SLEEP_TIME_MS);
-            } catch (InterruptedException ex) {/* do nothing */}
-        }
-        
-        // now wait for the file queue to be empty
-        while (!fileQueue.isEmpty()) {
-            try {
-                Thread.sleep(SLEEP_TIME_MS);
-            } catch (InterruptedException ex) {/* do nothing */}
-        }
-        
-        // now stop all hasher threads
-        for (Thread t : hashers) {
-            t.interrupt();
+                t.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Hasher.class.getName()).log(Level.SEVERE, "Failed to join thread " + t, ex);
+            }
         }
         
         System.out.println("Hashing complete.");
         System.out.println("Hashed " + hashQueue.size() + " files.");
     }
-}
-
-class FileProducer implements Runnable {
     
-    private File root;
-    private BlockingQueue<File> queue;
-    private Hasher app;
-    private boolean done = false;
-
-    public FileProducer(File root, BlockingQueue<File> queue) {
-        this.root = root;
-        this.queue = queue;
-    }
-
-    @Override
-    public void run() {
-        try {
-            crawl(root);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            done = true;
-        }
-    }
-    
-    public boolean isDone() {
-        return done;
-    }
-    
-    /*
-     * Crawls the file tree begining at root adding all files to the queue.
-     * @param root of the file tree to crawl.
-     */
-    private void crawl(File root) throws InterruptedException {
+    private static List<File> crawl(File root) {
+        List<File> files = Collections.EMPTY_LIST;
         File[] children = root.listFiles();
         if (children != null) {
+            files = new ArrayList<File>();
             for (File child : children) {
                 if (child.isDirectory()) {
-                    crawl(child);
+                    files.addAll(crawl(child));
                 } else if (child.isFile()) {
-                    System.out.println("Crawler grabbed file: " + child.getAbsolutePath());
-                    queue.put(child);
+                    //System.out.println("Crawler grabbed file: " + child.getAbsolutePath());
+                    files.add(child);
                 }
             }
         }
+        return files;
     }
 }
 
 class FileHasher implements Runnable {
     
-    private BlockingQueue<File> fileQueue;
+    private File file;
     private BlockingQueue<Long> hashQueue;
 
-    public FileHasher(BlockingQueue<File> fileQueue, BlockingQueue<Long> hashQueue) {
-        this.fileQueue = fileQueue;
+    public FileHasher(File file, BlockingQueue<Long> hashQueue) {
+        this.file = file;
         this.hashQueue = hashQueue;
     }
 
     @Override
     public void run() {
         try {
-            while (!Thread.currentThread().isInterrupted()) {
-                // get a file from the queue
-                File file = fileQueue.take();
-                
-                System.out.println("FileHasher with ID: " + Thread.currentThread().getId() + " is hashing file: " + file.getAbsolutePath());
+            //System.out.println("FileHasher with ID: " + Thread.currentThread().getId() + " is hashing file: " + file.getAbsolutePath());
 
-                // calculate the file hash
-                long hash = calcHash(file);
+            // calculate the file hash
+            long hash = calcHash(file);
 
-                // put the hash in the hash queue
-                hashQueue.put(hash);
-            }
+            // put the hash in the hash queue
+            hashQueue.put(hash);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
