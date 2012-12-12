@@ -30,7 +30,6 @@ public class Hasher {
         
         // populate a list of files to hash
         List<File> files = crawl(root);
-        System.out.println("Retrieved " + files.size() + " files for hashing.");
         
         // create the hash queue
         BlockingQueue<Long> hashQueue = new LinkedBlockingDeque<Long>();
@@ -59,7 +58,6 @@ public class Hasher {
                 if (child.isDirectory()) {
                     files.addAll(crawl(child));
                 } else if (child.isFile()) {
-                    //System.out.println("Crawler grabbed file: " + child.getAbsolutePath());
                     files.add(child);
                 }
             }
@@ -81,8 +79,6 @@ class FileHasher implements Runnable {
     @Override
     public void run() {
         try {
-            //System.out.println("FileHasher with ID: " + Thread.currentThread().getId() + " is hashing file: " + file.getAbsolutePath());
-
             // calculate the file hash
             long hash = calcHash(file);
 
