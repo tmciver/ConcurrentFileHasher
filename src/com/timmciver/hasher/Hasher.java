@@ -8,8 +8,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,12 +29,9 @@ public class Hasher {
         // populate a list of files to hash
         List<File> files = crawl(root);
         
-        // create the hash queue
-        BlockingQueue<Long> hashQueue = new LinkedBlockingDeque<Long>();
-        
         // create and start a FileProducer thread for each file
         for (File file : files) {
-            Thread t = new Thread(new FileHasher(file, hashQueue));
+            Thread t = new Thread(new FileHasher(file));
             t.start();
             try {
                 t.join();
@@ -46,7 +41,7 @@ public class Hasher {
         }
         
         System.out.println("Hashing complete.");
-        System.out.println("Hashed " + hashQueue.size() + " files.");
+        System.out.println("Hashed " + files.size() + " files.");
     }
     
     private static List<File> crawl(File root) {
@@ -69,24 +64,15 @@ public class Hasher {
 class FileHasher implements Runnable {
     
     private File file;
-    private BlockingQueue<Long> hashQueue;
 
-    public FileHasher(File file, BlockingQueue<Long> hashQueue) {
+    public FileHasher(File file) {
         this.file = file;
-        this.hashQueue = hashQueue;
     }
 
     @Override
     public void run() {
-        try {
-            // calculate the file hash
-            long hash = calcHash(file);
-
-            // put the hash in the hash queue
-            hashQueue.put(hash);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // calculate the file hash
+        long hash = calcHash(file);
     }
     
     private long calcHash(File file) {
