@@ -71,24 +71,21 @@ class FileHasher implements Runnable {
 
     @Override
     public void run() {
-        // calculate the file hash
-        long hash = calcHash(file);
+        try {
+            // calculate the file hash
+            long hash = calcHash(file);
+        } catch (FileNotFoundException ex) {
+            //Logger.getLogger(FileHasher.class.getName()).log(Level.SEVERE, "Could not open file: " + file, ex);
+        } catch (IOException ex) {
+            //Logger.getLogger(FileHasher.class.getName()).log(Level.SEVERE, "Could not read file: " + file, ex);
+        }
     }
     
-    private long calcHash(File file) {
-        InputStream in = null;
-        try {
-            in = new FileInputStream(file);
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(FileHasher.class.getName()).log(Level.SEVERE, "Could not open file: " + file, ex);
-        }
+    private long calcHash(File file) throws FileNotFoundException, IOException {
+        InputStream in = new FileInputStream(file);
         
         byte[] bytes = new byte[(int)file.length()];
-        try {
-            in.read(bytes);
-        } catch (IOException ex) {
-            Logger.getLogger(FileHasher.class.getName()).log(Level.SEVERE, "Could not read file: " + file, ex);
-        }
+        in.read(bytes);
         
         // calculate the hash
         long hash = 0;
