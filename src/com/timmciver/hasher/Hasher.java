@@ -26,13 +26,22 @@ public class Hasher {
             System.exit(1);
         }
         
+        long startMillis = System.currentTimeMillis();
+        
         // populate a list of files to hash
         List<File> files = crawl(root);
+        long midMillis = System.currentTimeMillis();
+        System.out.println("Found " + files.size() + " files to hash in " + (midMillis - startMillis)/1000.0 + " seconds.");
         
-        // create and start a FileProducer thread for each file
+        // create and start a FileHasher thread for each file
+        List<Thread> threads = new ArrayList<Thread>();
         for (File file : files) {
             Thread t = new Thread(new FileHasher(file));
             t.start();
+            threads.add(t);
+        }
+        
+        for (Thread t : threads) {
             try {
                 t.join();
             } catch (InterruptedException ex) {
@@ -40,8 +49,8 @@ public class Hasher {
             }
         }
         
-        System.out.println("Hashing complete.");
-        System.out.println("Hashed " + files.size() + " files.");
+        long endMillis = System.currentTimeMillis();
+        System.out.println("Hashed " + files.size() + " files in " + (endMillis - midMillis)/1000.0 + " seconds.");
     }
     
     private static List<File> crawl(File root) {
@@ -75,9 +84,9 @@ class FileHasher implements Runnable {
             // calculate the file hash
             long hash = calcHash(file);
         } catch (FileNotFoundException ex) {
-            //Logger.getLogger(FileHasher.class.getName()).log(Level.SEVERE, "Could not open file: " + file, ex);
+            Logger.getLogger(FileHasher.class.getName()).log(Level.SEVERE, "Could not open file: " + file, ex);
         } catch (IOException ex) {
-            //Logger.getLogger(FileHasher.class.getName()).log(Level.SEVERE, "Could not read file: " + file, ex);
+            Logger.getLogger(FileHasher.class.getName()).log(Level.SEVERE, "Could not read file: " + file, ex);
         }
     }
     
